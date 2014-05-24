@@ -30,6 +30,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.zip.GZIPOutputStream;
 import javax.swing.JFileChooser;
+import uk.samoatesgames.spawnereditor.Equiptment.Enchantment;
 import uk.samoatesgames.spawnereditor.entities.Entity;
 import uk.samoatesgames.spawnereditor.entities.hostile.EntityBlaze;
 import uk.samoatesgames.spawnereditor.entities.hostile.EntityCaveSpider;
@@ -409,6 +410,68 @@ public class SpawnerEditor extends javax.swing.JFrame {
         return attributes;
     }
     
+    private List<ITag> getSpawnerEquiptment()
+    {
+        List<ITag> equiptment = new ArrayList<>();
+
+        final String[] EQ_IDS = new String[] {
+            "Weapon",
+            "Boots",
+            "Leggings",
+            "Chestplate",
+            "Helmet"           
+        };
+        
+        for (String eqKey : EQ_IDS)
+        {
+            TagCompound weapon = new TagCompound("");
+            
+            if (m_equiptment.containsKey(eqKey))
+            {
+                Equiptment eq = m_equiptment.get(eqKey);
+                weapon.setTag(new TagByte("Count", (byte)1));
+                weapon.setTag(new TagShort("Damage", (short)0));        
+                weapon.setTag(new TagShort("id", (short)eq.id));
+                
+                TagCompound tag = new TagCompound("tag");
+                
+                if (!eq.name.isEmpty())
+                {
+                    TagCompound display = new TagCompound("display");
+                    display.setTag(new TagString("Name", eq.name));
+                    tag.setTag(display);   
+                }
+                
+                if (!eq.enchantments.isEmpty())
+                {
+                    List<ITag> enchTags = new ArrayList<>();
+
+                    for (Enchantment ench : eq.enchantments)
+                    {
+                        TagCompound newEnch = new TagCompound("");                    
+                        newEnch.setTag(new TagShort("id", (short)ench.id));
+                        newEnch.setTag(new TagShort("lvl", (short)ench.level));                    
+                        enchTags.add(newEnch);
+                    }
+
+                    tag.setTag(new TagList("ench", enchTags));    
+                }
+                                
+                weapon.setTag(tag);
+                        
+                System.out.println("Adding equiptment: " + eq.id + " for " + eqKey);
+            }
+            else
+            {
+                System.out.println("No equiptment: " + eqKey);
+            }
+            
+            equiptment.add(weapon);
+        }
+                
+        return equiptment;
+    }
+    
     private void saveSpawner(File saveLocation)
     {
         
@@ -421,11 +484,19 @@ public class SpawnerEditor extends javax.swing.JFrame {
             }
             
             saveLocation.createNewFile();
-                        
+        } catch (IOException ex) {
+            Logger.getLogger(SpawnerEditor.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        
+        FileOutputStream outputStream = null;
+        GZIPOutputStream zipStream = null;
+        NbtOutputStream nbtOutputStream = null;
+        
+        try {                        
             // create output stream
-            FileOutputStream outputStream = new FileOutputStream (saveLocation);
-            GZIPOutputStream zipStream = new GZIPOutputStream(outputStream);
-            NbtOutputStream nbtOutputStream = new NbtOutputStream (zipStream);
+            outputStream = new FileOutputStream (saveLocation);
+            zipStream = new GZIPOutputStream(outputStream);
+            nbtOutputStream = new NbtOutputStream (zipStream);
 
             // write data
             TagCompound schematic = new TagCompound ("Schematic");
@@ -494,7 +565,7 @@ public class SpawnerEditor extends javax.swing.JFrame {
             spawnData.setTag(new TagList("DropChances", new ArrayList<ITag>()));
             
             // Equipment
-            spawnData.setTag(new TagList("Equipment", new ArrayList<ITag>()));
+            spawnData.setTag(new TagList("Equipment", getSpawnerEquiptment()));
             
             // Motion
             spawnData.setTag(new TagList("Motion", new ArrayList<ITag>()));
@@ -509,12 +580,27 @@ public class SpawnerEditor extends javax.swing.JFrame {
                         
             // Write it out
             nbtOutputStream.write (schematic);
-            
-            nbtOutputStream.close();
-            outputStream.close();
-            
+                                    
         } catch (IOException ex) {
             Logger.getLogger(SpawnerEditor.class.getName()).log(Level.SEVERE, null, ex);
+        }
+        finally {
+            
+            try {
+                if (nbtOutputStream != null) {
+                    nbtOutputStream.close();
+                }
+
+                if (zipStream != null) {
+                    zipStream.close();
+                }
+
+                if (outputStream != null) {
+                    outputStream.close();
+                }
+            } catch (IOException ex) {
+                Logger.getLogger(SpawnerEditor.class.getName()).log(Level.SEVERE, null, ex);
+            }
         }
         
     }
